@@ -46,7 +46,7 @@ namespace JudgementLimiter
 
         private static void OnGUI(UnityModManager.ModEntry modEntry)
         {
-            bool flag = true;
+            bool flag = false;
             foreach (bool e in setting.LimitChoice)
             {
                 if (e)
@@ -56,6 +56,7 @@ namespace JudgementLimiter
                 }
                 else flag = false;
             }
+            if (!flag) flag = setting.AccLimit;
             JudgementLimiter.JudgementLimiterSettings();
             if (flag)
             {
@@ -145,6 +146,8 @@ namespace JudgementLimiter
                 GUILayout.EndHorizontal();
                 judgementLimiterText.text.alignment = judgementLimiterText.toAlign(setting.align);
             }
+            GUILayout.Space(5f);
+            setting.killnofail = GUILayout.Toggle(setting.killnofail, "Kill even when No-Fail is on");
         }
         
         private static void OnSaveGUI(UnityModManager.ModEntry modEntry)

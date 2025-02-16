@@ -1,8 +1,5 @@
-﻿using ADOFAI;
-using HarmonyLib;
-using System;
+﻿using HarmonyLib;
 using System.Collections.Generic;
-using System.Runtime.ConstrainedExecution;
 
 namespace JudgementLimiter
 {
@@ -25,8 +22,6 @@ namespace JudgementLimiter
                 Main.judgementLimiterText.TextObject.SetActive(false);
             }
         }
-
-
 
         [HarmonyPatch(typeof(scrUIController), "WipeToBlack")]
         internal static class scrUIController_WipeToBlack_Patch
@@ -61,12 +56,14 @@ namespace JudgementLimiter
         [HarmonyPatch(typeof(scnGame), "Play")]
         public static class PlayPatch
         {
-            private static void Postfix()
+            private static void Postfix(int seqID)
             {
+
+                Main.setting.seqID = seqID;
                 if (!Main.IsEnabled) return;
                 if (!ADOBase.controller.gameworld) return;
-
                 Main.setting.LimitAssigner();
+                Main.setting.SetJudgement();
                 LoadText();
             }
         }
@@ -78,19 +75,25 @@ namespace JudgementLimiter
             {
                 if (!Main.IsEnabled) return;
                 if (!ADOBase.controller.gameworld) return;
-
                 LoadText();
             }
         }
-
-        [HarmonyPatch(typeof(scrMisc), "GetHitMargin")]
-        public static class GetHitMarginPatch
+        private static int FloorCount
         {
-            public static void Postfix(ref HitMargin __result)
+            get
+            {
+                return scrLevelMaker.instance.listFloors.Count - 1;
+            }
+        }
+
+        [HarmonyPatch(typeof(scrMistakesManager), "AddHit")]
+        public static class AddHitPatch
+        {
+            public static void Postfix(HitMargin hit)
             {
                 foreach (var hitmargin in Main.setting.hitmargin)
                 {
-                    if (__result == hitmargin)
+                    if (hit == hitmargin)
                     {
                         if (Main.setting.LimitChoice[(int)hitmargin])
                         {
@@ -100,36 +103,84 @@ namespace JudgementLimiter
                             }
                             else
                             {
-                                bool origNoFail = Controller.noFail;
-                                if (Main.setting.killnofail)
-                                {
-                                    Controller.noFail = false;
-                                }
-                                Controller.FailAction(true);
-                                Controller.noFail = origNoFail;
+                                KillPlayer();
                             }
                         }
                         break;
                     }
                 }
-                List<string> texts = new List<string>();
 
-                for (int i = 0; i < Main.setting.InputLimit.Length; i++)
+                List<string> texts = GetText(new List<string>());
+                Main.judgementLimiterText.setText(string.Join("\n", texts));
+
+                switch(hit)
                 {
-                    if (Main.setting.LimitChoice[i])
+                    case HitMargin.TooEarly:
+                        Main.setting.TooEarlyCount++;
+                        break;
+                    case HitMargin.VeryEarly:
+                        Main.setting.EarlyCount++;
+                        break;
+                    case HitMargin.EarlyPerfect:
+                        Main.setting.EPerfectCount++;
+                        break;
+                    case HitMargin.LatePerfect:
+                        Main.setting.LPerfectCount++;
+                        break;
+                    case HitMargin.VeryLate:
+                        Main.setting.LateCount++;
+                        break;
+                    case HitMargin.TooLate:
+                        Main.setting.TooEarlyCount++;
+                        break;
+                    case HitMargin.FailMiss:
+                        Main.setting.FailMiss++;
+                        break;
+                    case HitMargin.FailOverload:
+                        Main.setting.FailOverload++;
+                        break;
+                }
+                if (Main.setting.AccLimit)
+                {
+                    double GetCurrentAcc = JudgementLimiter.XAcc(FloorCount, Main.setting.seqID, Main.setting.EPerfectCount, Main.setting.LPerfectCount,
+                        Main.setting.EarlyCount, Main.setting.LateCount, Main.setting.TooEarlyCount, Main.setting.TooLateCount, Main.setting.FailMiss,
+                        Main.setting.FailOverload);
+
+                    if (GetCurrentAcc < Main.setting.AccGoal)
                     {
-                        texts.Add(Main.setting.Displaytext.Replace("{Judgement}", Main.setting.Getname(i)) +
-                            $" {Main.setting.LimitChecker[i]}");
+                        KillPlayer();
                     }
                 }
-                Main.judgementLimiterText.setText(string.Join("\n", texts));
             }
+        }
+
+        private static void KillPlayer()
+        {
+            bool origNoFail = Controller.noFail;
+            if (Main.setting.killnofail)
+            {
+                Controller.noFail = false;
+            }
+            Controller.FailAction(true);
+            Controller.noFail = origNoFail;
         }
         private static void LoadText()
         {
             Main.judgementLimiterText.TextObject.SetActive(true);
-            List<string> texts = new List<string>();
+            List<string> texts = GetText(new List<string>());
+            Main.judgementLimiterText.setText(string.Join("\n", texts));
+            Main.judgementLimiterText.setSize(Main.setting.size);
+        }
+        private static List<string> GetText(List<string> texts)
+        {
+            if (Main.setting.AccLimit)
+            {
+                // Add Accuracy Goal Text if enabled
+                string accGoalText = Main.setting.DisplayAccLimit.Replace("{Acc}", Main.setting.AccGoal.ToString("0.0###") + "%");
+                texts.Add(accGoalText);
+            }
 
+            // Add Limit Text based on choices
             for (int i = 0; i < Main.setting.InputLimit.Length; i++)
             {
                 if (Main.setting.LimitChoice[i])
@@ -138,8 +189,7 @@ namespace JudgementLimiter
                         $" {Main.setting.LimitChecker[i]}");
                 }
             }
-            Main.judgementLimiterText.setText(string.Join("\n", texts));
-            Main.judgementLimiterText.setSize(Main.setting.size);
+            return texts;
         }
     }
 }
