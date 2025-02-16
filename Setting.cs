@@ -28,9 +28,6 @@ namespace JudgementLimiter
         public int seqID = 0;
         public double AccGoal = 100;
 
-        //public int[] Orders = new int[7];
-        //public List<string> TextOrder = new List<string>() { "LimitText", "AccGoalText" }; // Default order
-
         public int EarlyCount = 0, LateCount = 0, EPerfectCount = 0, LPerfectCount = 0, 
             FailMiss = 0, FailOverload = 0, TooEarlyCount = 0, TooLateCount = 0;
 

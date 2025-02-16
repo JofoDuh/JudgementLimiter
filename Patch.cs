@@ -91,15 +91,16 @@ namespace JudgementLimiter
         {
             public static void Postfix(HitMargin hit)
             {
-                foreach (var hitmargin in Main.setting.hitmargin)
+                int i = 0;
+                foreach (HitMargin hitmargin in Main.setting.hitmargin)
                 {
                     if (hit == hitmargin)
                     {
-                        if (Main.setting.LimitChoice[(int)hitmargin])
+                        if (Main.setting.LimitChoice[i])
                         {
-                            if (Main.setting.LimitChecker[(int)hitmargin] != 0)
+                            if (Main.setting.LimitChecker[i] != 0)
                             {
-                                Main.setting.LimitChecker[(int)hitmargin] -= 1;
+                                Main.setting.LimitChecker[i] -= 1;
                             }
                             else
                             {
@@ -108,6 +109,7 @@ namespace JudgementLimiter
                         }
                         break;
                     }
+                    i++;
                 }
 
                 List<string> texts = GetText(new List<string>());
